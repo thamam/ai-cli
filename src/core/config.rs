@@ -127,20 +127,37 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Load configuration from file or create default
+    /// Load configuration using the config crate
+    /// Supports multiple sources: config file, environment variables, defaults
     pub fn load() -> Result<Self> {
         let config_path = Self::get_config_path()?;
 
-        if config_path.exists() {
-            let content = std::fs::read_to_string(&config_path)?;
-            let config: Config = toml::from_str(&content)?;
-            Ok(config)
-        } else {
-            // Create default config
-            let config = Config::default();
-            config.save()?;
-            Ok(config)
+        // Ensure config directory exists
+        if let Some(parent) = config_path.parent() {
+            std::fs::create_dir_all(parent)?;
         }
+
+        // If config doesn't exist, create default
+        if !config_path.exists() {
+            let default_config = Config::default();
+            default_config.save()?;
+        }
+
+        // Use config crate to load from multiple sources
+        let settings = config::Config::builder()
+            // Start with defaults
+            .add_source(config::File::from(config_path).required(false))
+            // Add environment variables (with prefix AETHER_)
+            .add_source(
+                config::Environment::with_prefix("AETHER")
+                    .separator("__")
+                    .try_parsing(true),
+            )
+            .build()?;
+
+        // Deserialize into our Config struct
+        let config: Config = settings.try_deserialize()?;
+        Ok(config)
     }
 
     /// Save configuration to file
@@ -159,11 +176,19 @@ impl Config {
     }
 
     /// Get the configuration file path
-    fn get_config_path() -> Result<PathBuf> {
+    pub fn get_config_path() -> Result<PathBuf> {
+        // Check for AETHER_CONFIG_PATH env var first
+        if let Ok(custom_path) = std::env::var("AETHER_CONFIG_PATH") {
+            return Ok(PathBuf::from(custom_path));
+        }
+
         let home = std::env::var("HOME")
             .or_else(|_| std::env::var("USERPROFILE"))
             .map_err(|_| anyhow::anyhow!("Could not determine home directory"))?;
 
-        Ok(PathBuf::from(home).join(".config").join("aether").join("config.toml"))
+        Ok(PathBuf::from(home)
+            .join(".config")
+            .join("aether")
+            .join("config.toml"))
     }
 }

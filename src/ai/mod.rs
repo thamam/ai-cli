@@ -1,4 +1,5 @@
 pub mod client;
+pub mod mock;
 pub mod ollama;
 pub mod prompts;
 
@@ -8,3 +9,4 @@ pub mod prompts;
 // pub mod gemini;
 
 pub use client::{AIProvider, CompletionRequest, ModelType};
+pub use mock::MockAIProvider;
