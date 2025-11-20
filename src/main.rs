@@ -95,8 +95,26 @@ fn inject_shell_integration(shell: &str) -> Result<()> {
 }
 
 async fn run_pipe_mode() -> Result<()> {
-    // TODO: Phase 2 - Implement pipe mode
-    eprintln!("Pipe mode not yet implemented");
+    use std::io::{self, Read};
+
+    // Read from stdin
+    let mut stdin_data = String::new();
+    io::stdin().read_to_string(&mut stdin_data)?;
+
+    if stdin_data.is_empty() {
+        eprintln!("Error: No input provided via stdin");
+        eprintln!("Usage: cat file.txt | aether --mode pipe");
+        eprintln!("   or: echo 'data' | ae 'instruction'");
+        std::process::exit(1);
+    }
+
+    // TODO: Phase 3 - Process with AI
+    // For now, just echo back with a message
+    println!("Received {} bytes of input", stdin_data.len());
+    println!("Data preview: {}", &stdin_data.chars().take(100).collect::<String>());
+    println!("\nNote: AI processing will be implemented in Phase 3");
+    println!("For now, pipe mode just echoes your input.");
+
     Ok(())
 }
 

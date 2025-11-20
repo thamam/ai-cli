@@ -6,9 +6,10 @@ use std::path::PathBuf;
 pub struct ShellContext {
     pub last_command: Option<String>,
     pub last_exit_code: Option<i32>,
-    pub last_error: Option<String>,
+    pub duration: Option<i32>,
     pub working_directory: PathBuf,
     pub shell_type: String,
+    pub timestamp: Option<i64>,
 }
 
 impl ShellContext {
@@ -42,7 +43,7 @@ impl ShellContext {
 
     /// Get the path to the context file
     fn get_context_path() -> PathBuf {
-        PathBuf::from("/tmp/aether/context.json")
+        PathBuf::from("/tmp/aether/session_context.json")
     }
 
     /// Get the path to the last session file (for Sentinel mode)

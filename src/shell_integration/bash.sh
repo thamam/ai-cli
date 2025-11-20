@@ -21,7 +21,19 @@ __aether_precmd() {
         unset __AETHER_CMD_START_TIME
     fi
 
-    # If command failed, save context for Sentinel mode
+    # Always update session context (for Lens mode to use)
+    cat > "$AETHER_TMP_DIR/session_context.json" <<EOF
+{
+  "last_command": "$__AETHER_LAST_CMD",
+  "last_exit_code": $exit_code,
+  "duration": $duration,
+  "working_directory": "$PWD",
+  "shell_type": "bash",
+  "timestamp": $(date +%s)
+}
+EOF
+
+    # If command failed, also save to last_session for Sentinel mode
     if [[ $exit_code -ne 0 && -n "$__AETHER_LAST_CMD" ]]; then
         cat > "$AETHER_TMP_DIR/last_session" <<EOF
 {
@@ -29,20 +41,11 @@ __aether_precmd() {
   "exit_code": $exit_code,
   "duration": $duration,
   "working_directory": "$PWD",
-  "shell_type": "bash"
+  "shell_type": "bash",
+  "timestamp": $(date +%s)
 }
 EOF
     fi
-
-    # Update context file
-    cat > "$AETHER_TMP_DIR/context.json" <<EOF
-{
-  "last_command": "$__AETHER_LAST_CMD",
-  "last_exit_code": $exit_code,
-  "working_directory": "$PWD",
-  "shell_type": "bash"
-}
-EOF
 }
 
 # Set up hooks
