@@ -18,7 +18,9 @@ __aether_preexec() {
 }
 
 __aether_precmd() {
+    # CRITICAL: Must capture exit code FIRST before any other commands
     local exit_code=$?
+
     local duration=0
 
     if [[ -n "$__AETHER_CMD_START_TIME" ]]; then

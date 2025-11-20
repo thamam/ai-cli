@@ -259,3 +259,51 @@ fn test_no_function_named_double_question() {
     // SHOULD contain alias instead
     assert!(script.contains("alias '??'"));
 }
+
+#[test]
+fn test_exit_code_captured_first() {
+    // CRITICAL: Verify that $? is captured as the FIRST line in precmd
+    // This prevents any command from resetting the exit code to 0
+
+    let mut cmd = Command::cargo_bin("aether").unwrap();
+    cmd.arg("inject").arg("bash");
+
+    let output = cmd.output().unwrap();
+    let script = String::from_utf8(output.stdout).unwrap();
+
+    // Find the __aether_precmd function
+    let precmd_start = script.find("__aether_precmd()").expect("precmd function not found");
+    let precmd_section = &script[precmd_start..precmd_start + 300];
+
+    // The FIRST executable line after function declaration should be exit code capture
+    // It should come before ANY variable assignment like __AETHER_IN_HOOK
+    let exit_code_pos = precmd_section.find("local exit_code=$?").expect("exit code capture not found");
+
+    // Verify no __AETHER_IN_HOOK before exit code capture (bash specific)
+    let before_exit_code = &precmd_section[..exit_code_pos];
+    assert!(!before_exit_code.contains("__AETHER_IN_HOOK=1"),
+            "ERROR: Setting __AETHER_IN_HOOK before capturing exit code will reset $? to 0!");
+
+    // Also test zsh
+    let mut cmd = Command::cargo_bin("aether").unwrap();
+    cmd.arg("inject").arg("zsh");
+
+    let output = cmd.output().unwrap();
+    let script = String::from_utf8(output.stdout).unwrap();
+
+    // Verify zsh also captures exit code first
+    let precmd_start = script.find("__aether_precmd()").expect("precmd function not found");
+    let precmd_section = &script[precmd_start..precmd_start + 250];
+
+    assert!(precmd_section.contains("local exit_code=$?"));
+
+    // In zsh, make sure exit code comes before any other local vars
+    let exit_code_pos = precmd_section.find("local exit_code=$?").expect("exit code capture not found");
+    let after_function_decl = precmd_section.find("{").expect("function body not found");
+    let first_statement = &precmd_section[after_function_decl..exit_code_pos];
+
+    // Should only contain comments/whitespace, no other commands
+    assert!(!first_statement.contains("local duration") ||
+            precmd_section.find("local duration").unwrap() > exit_code_pos,
+            "ERROR: Other variables declared before exit code capture!");
+}

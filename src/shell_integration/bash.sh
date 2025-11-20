@@ -21,9 +21,12 @@ __aether_preexec() {
 }
 
 __aether_precmd() {
-    __AETHER_IN_HOOK=1  # Mark that we're in a hook
-
+    # CRITICAL: Must capture exit code FIRST before any other commands
     local exit_code=$?
+
+    # Now safe to set other variables
+    __AETHER_IN_HOOK=1
+
     local duration=0
 
     if [[ -n "$__AETHER_CMD_START_TIME" ]]; then
