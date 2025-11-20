@@ -171,18 +171,91 @@ fn test_ae_alias_calls_pipe_mode() {
 
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("alias ae='aether --mode pipe'"));
+        .stdout(predicate::str::contains("alias ae"))
+        .stdout(predicate::str::contains("--mode pipe"));
 }
 
 #[test]
 fn test_sentinel_mode_marker_exists() {
-    // Test that ?? function is defined in shell scripts
+    // Test that ?? is properly implemented as an alias (not a function)
+
+    let mut cmd = Command::cargo_bin("aether").unwrap();
+    cmd.arg("inject").arg("zsh");
+
+    let output = cmd.output().unwrap();
+    let script = String::from_utf8(output.stdout).unwrap();
+
+    assert!(script.contains("__aether_sentinel_trigger"));
+    assert!(script.contains("alias '??'"));
+    assert!(!script.contains("??() {"));
+
+    // Also test bash
+    let mut cmd = Command::cargo_bin("aether").unwrap();
+    cmd.arg("inject").arg("bash");
+
+    let output = cmd.output().unwrap();
+    let script = String::from_utf8(output.stdout).unwrap();
+
+    assert!(script.contains("__aether_sentinel_trigger"));
+    assert!(script.contains("alias '??'"));
+    assert!(!script.contains("??() {"));
+}
+
+#[test]
+fn test_hook_prevents_self_capture() {
+    // Test that hooks have logic to prevent capturing themselves
+
+    let mut cmd = Command::cargo_bin("aether").unwrap();
+    cmd.arg("inject").arg("bash");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("__aether_precmd*|__aether_preexec*"))
+        .stdout(predicate::str::contains("__AETHER_IN_HOOK"));
 
     let mut cmd = Command::cargo_bin("aether").unwrap();
     cmd.arg("inject").arg("zsh");
 
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("??()"))
-        .stdout(predicate::str::contains("sentinel"));
+        .stdout(predicate::str::contains("__aether_precmd*|__aether_preexec*"));
+}
+
+#[test]
+fn test_aether_bin_variable_support() {
+    // Test that scripts use AETHER_BIN variable if set
+
+    let mut cmd = Command::cargo_bin("aether").unwrap();
+    cmd.arg("inject").arg("bash");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("AETHER_BIN"))
+        .stdout(predicate::str::contains("command -v aether"));
+
+    let mut cmd = Command::cargo_bin("aether").unwrap();
+    cmd.arg("inject").arg("zsh");
+
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("AETHER_BIN"))
+        .stdout(predicate::str::contains("command -v aether"));
+}
+
+#[test]
+fn test_no_function_named_double_question() {
+    // Verify that ?? is NOT implemented as a function (which causes syntax errors)
+
+    let mut cmd = Command::cargo_bin("aether").unwrap();
+    cmd.arg("inject").arg("bash");
+
+    let output = cmd.output().unwrap();
+    let script = String::from_utf8(output.stdout).unwrap();
+
+    // Should NOT contain "??() {" which is illegal in bash
+    assert!(!script.contains("??() {"));
+    assert!(!script.contains("??()")); // Any variant
+
+    // SHOULD contain alias instead
+    assert!(script.contains("alias '??'"));
 }
